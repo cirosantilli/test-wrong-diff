@@ -1,3 +1,86 @@
+           done
+	fi
+done
+
+# Checks for and removes any remaining keymap.pkg files
+# It does this as keymaps are merged into there parent files
+
+for filename in `find $PKGDIR -maxdepth 1 -name "keymaps-*"`
+do
+	rm -R $filename
+	keymapname=`basename $filename`
+	rm $PACDIR/$keymapname.pkg
+done
+}
+
+copy_firmware()
+{
+	if [ -n "$2" ]; then
+		firmfiles=`find -L /lib/firmware/ -name $1\* | grep $2`
+	else
+		firmfiles=`find -L /lib/firmware/ -name $1\*`
+	fi
+	if [ -n "$firmfiles" ]; then
+		for firmfile in $firmfiles; do
+			firmpath=./tmp-tree/lib/firmware/`echo $firmfile |cut -d '/' -f4-`
+			if [ ! -e $firmpath ]; then
+				echo "Firmware: `basename $firmfile`"
+				if [ ! -d ${firmpath%/*} ] ;then
+					mkdir -p ${firmpath%/*}
+				fi
+				cp $firmfile ${firmpath%/*}/.
+			fi
+		done
+	else
+		echo -e "\tNotice, Firmware $1 not found"
+#		echo "$1" >> /missing
+	fi
+}
+
+read_conf()
+{
+if [ -z "$1" ] ;
+	then CONF_FILE=$CONFIG_FILE
+	else CONF_FILE=$1
+fi
+(cat $CONF_FILE; echo) | # make sure there is a LF at the end
+while read type name args
+do
+    type=`echo $type | sed -e s///g | sed -e 's/\&/\\\&/g'`
+    name=`echo $name | sed -e s///g | sed -e 's/\&/\\\&/g'`
+    args=`echo $args | sed -e s///g | sed -e 's/\&/\\\&/g'`
+    case $type in
+    \#*|"") continue
+	    ;;
+    param)
+	echo "Parameter: $name"
+	echo "ts_$name=$args" >> $PACDIR/$name.param
+	;;
+    package)
+	echo "Package: $name"
+	if [ -d ./packages/$name ]; then
+	   echo "cp -Rp --remove-destination ./packages/$name/* ./tmp-tree > /dev/null 2>&1">>\
+	     $PACDIR/$name.package
+	else
+	   echo "Not Found $name!!"
+	fi
+	;;
+    machine)
+	read_conf ./machine/$name/module.list
+	if [ -e ./machine/$name/firmware.list ]; then
+		read_conf ./machine/$name/firmware.list
+	fi
+	if [ -e ./machine/$name/param.list ]; then
+		read_conf ./machine/$name/param.list
+	fi
+	if [ -e ./machine/$name/package.list ]; then
+		read_conf ./machine/$name/package.list
+	fi
+	if [ -e ./machine/$name/etc ]; then
+		cp -rf ./machine/$name/etc ./tmp-tree/.
+	fi
+	;;
+    module)
 	if ! is_enabled $ALLMODULES; then
 		if [ -e ./kernel/alias/$name ] ; then
 			name=`cat ./kernel/alias/$name`
@@ -12,5 +95,5 @@
 		done
 	fi
 	if [ `make_caps X$args` == "XFORCE" ]; then
-		echo $name >> ./tmp-tree/etc/modules
+		echo $name `echo $args | cut -f1 -d#` >> ./tmp-tree/etc/modules
 	fi
