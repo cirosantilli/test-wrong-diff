@@ -47,6 +47,56 @@ PATH=/usr/local/bin:/usr/bin:/bin:/sbin:/usr/sbin:/usr/local/sbin:/ts/bin
 # set some defaults for builds that would produce unexpected results for legacy build scripts otherwise.
 ts_mesa_3d=enabled
 ts_localpkgs=true
+
+# Show Command line Parameters
+
+showhelp()
+{
+	echo "--license ACCEPT      Accept all licenses automatically"
+	echo "--help                Show help then exit"
+	echo "--autodl              Download all commercial addins automatically"
+	echo "--buildtime FILENAME  Add buildtime conf file to squashfs image and build boot images only"
+	echo "--kernel VERSION      Use this version of the kernel (rather than the default)"
+	echo "--noimages            Build process but don't generate boot images"
+	echo "--regenconf           Copy over default config example files again"
+	echo "--removeall           Remove all commercial binaries then exit"
+	echo "--savedir             Saves the tmp-tree directory for debugging and development purposes"
+	echo "--savepkglist         Saves the package list files for documentation purposes"
+	echo "--update              Will run all package update scripts <package>/build/update"
+	echo "--allmodules          Will install all available kernel modules into the image"
+}
+
+## Remove Temp files
+
+unmount_tmp()
+{
+	sleep 3
+	if mounted ./tmp-tree/proc; then
+		umount -f ./tmp-tree/proc
+	fi
+	if mounted ./tmp-tree/dev; then
+		umount -f ./tmp-tree/dev
+	fi
+}
+
+remove_files()
+{
+#	But only if we don't want to save them for debugging
+	if [ -z "$SAVEDIR" ]; then
+		if [ -e ./temp-efi ]; then
+			rmdir ./temp-efi
+		fi
+		if [ -e /tmp/syslinux-com32 ]; then
+			rm /tmp/syslinux-com32
+		fi
+		if [ -e ./tmp-tree ] ; then
+			unmount_tmp
+			rm -Rf ./tmp-tree/*
+			rmdir ./tmp-tree
+		fi
+		if [ -e ./fastboot-tmp ] ;then
+			rm -rf ./fastboot-tmp
+		fi
     \#*|"") continue
 	    ;;
     param)
@@ -92,5 +142,5 @@ ts_localpkgs=true
 		done
 	fi
 	if [ `make_caps X$args` == "XFORCE" ]; then
-		echo $name >> ./tmp-tree/etc/modules
+		echo $name `echo $args | cut -f1 -d#` >> ./tmp-tree/etc/modules
 	fi
