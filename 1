@@ -142,5 +142,5 @@ remove_files()
 		done
 	fi
 	if [ `make_caps X$args` == "XFORCE" ]; then
-		echo $name `echo $args | cut -f1 -d#` >> ./tmp-tree/etc/modules
+		echo $name >> ./tmp-tree/etc/modules
 	fi
